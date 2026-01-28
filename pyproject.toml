@@ -1,0 +1,12 @@
+[project]
+name = "dl1"
+version = "0.1.0"
+description = "TP1 Deep Learning (Multi Layer Perceptron)"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib>=3.10.8",
+    "pandas>=3.0.0",
+    "scikit-learn>=1.8.0",
+    "torch>=2.10.0",
+]
