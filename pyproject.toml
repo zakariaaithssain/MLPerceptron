@@ -5,6 +5,7 @@ description = "TP1 Deep Learning (Multi Layer Perceptron)"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "ipykernel>=7.1.0",
     "matplotlib>=3.10.8",
     "pandas>=3.0.0",
     "scikit-learn>=1.8.0",
