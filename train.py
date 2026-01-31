@@ -108,13 +108,13 @@ def train(model, dataloader, num_epochs:int, lr:float, device) -> list[dict]:
                         {"best_model_state":model.state_dict(),
                         "best_validation_loss": best_val_loss,
                         "epoch":epoch}, 
-                                 "best_model.pt")
+                                 "best_state.pt")
                 else:
                     patience_counter += 1
                     logging.debug(f"validation loss did not improve at epoch {epoch}")
 
                 if patience_counter >= patience:
-                    logging.warning(f"early stopping triggered after {patience} waiting epochs")
+                    logging.warning(f"early stopping triggered after {patience} waiting epochs. best state saved to 'best_state.pt'")
                     break
 
                 if epoch % 10 == 0 or epoch==99: 
