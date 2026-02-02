@@ -5,9 +5,17 @@ from torch.utils.data import DataLoader
 from torchmetrics.classification import BinaryRecall
 
 from typing import Optional
+from pathlib import Path
+
+from src.config import setup_logging
+setup_logging()
+
+
+
 
 
 def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:torch.device, valid_dataloader:Optional[DataLoader] = None): 
+        logger = logging.getLogger("train")
         model.to(device)
         #Adam with L2 regularization, regularization strength 1e-4
         decay, no_decay = [], []
@@ -30,7 +38,7 @@ def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:t
         patience = 20
         patience_counter = 0
 
-        logging.info("training started.")
+        logger.info("training started.")
         for epoch in range(num_epochs): 
                 model.train()
                 train_loss = 0.0
@@ -59,7 +67,7 @@ def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:t
                     # validation for early stopping
                     val_loss = validate(model, criterion, valid_dataloader, device)
 
-                    logging.debug(
+                    logger.debug(
                         f"epoch {epoch:03d} | train cross entropy {train_loss:.4f} | val cross entropy {val_loss:.4f}"
                     )
 
@@ -67,7 +75,7 @@ def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:t
                     if val_loss <= best_val_loss:
                         best_val_loss = val_loss
                         patience_counter = 0
-                        logging.debug(f"patience counter reinitialized.")
+                        logger.debug(f"patience counter reinitialized.")
                         #save the state of the best model so far, allows as to increase patience, that will prevent stopping because of noise. 
                         torch.save(
                             {"best_model_state":model.state_dict(),
@@ -76,16 +84,16 @@ def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:t
                                     "best_state.pt")
                     else:
                         patience_counter += 1
-                        logging.debug(f"validation cross entropy did not improve at epoch {epoch}")
+                        logger.debug(f"validation cross entropy did not improve at epoch {epoch}")
 
                     if patience_counter >= patience:
-                        logging.warning(f"early stopping triggered after {patience} waiting epochs. min cross entropy loss: {best_val_loss}; epoch: {epoch}; best state saved to 'best_state.pt'")
+                        logger.warning(f"early stopping triggered after {patience} waiting epochs. min cross entropy loss: {best_val_loss}; epoch: {epoch}; best state saved to 'best_state.pt'")
                         break
 
                 if epoch % 10 == 0 or epoch==99: 
-                    logging.info(f"epoch {epoch:03d} | train cross entropy {train_loss:.4f} | val cross entropy {val_loss:.4f}")
+                    logger.info(f"epoch {epoch:03d} | train cross entropy {train_loss:.4f} | val cross entropy {val_loss:.4f}")
          
-        logging.info("training completed. ")
+        logger.info("training completed. ")
 
 
 
@@ -113,31 +121,30 @@ def validate(model, criterion, valid_dataloader:DataLoader, device:torch.device)
 
 
 @torch.no_grad()
-def test(trained_model,test_data:torch.utils.data.Dataset, device, metric = BinaryRecall()):
+def test(model, pt_file:Path, test_data:torch.utils.data.Dataset, device, metric = BinaryRecall()):
     "testing using the `Binary Recall` metric by default, as we care more about minimizing false negatives (`FN`)"
+    model.to(device)
+    checkpoint = torch.load(pt_file, map_location=device)
+    model.load_state_dict(checkpoint["best_model_state"])
+    model.eval()
 
-    trained_model.eval()
-    trained_model.to(device)
-    metric.to(device)
-
-    num_batches = 0
     dataloader = torch.utils.data.DataLoader(test_data, batch_size=37, shuffle=True,
                                             pin_memory=True) #in case we have GPU
-    logging.info("final testing started.")
-    for X_batch, y_batch in dataloader:
-        X_batch = X_batch.to(device)
-        y_batch = y_batch.to(device)
-
-        logits = trained_model(X_batch)
-        #the metric class transforms logits to probas automatically. 
-        batch_recall = metric(logits, y_batch)
-        logging.info(f"Recall for batch {num_batches}: {batch_recall}")
-        num_batches += 1
     
-    #metric automatically accumulates metrics over batches
+    logger = logging.getLogger("test")
+    logger.info("final testing started.")
+    num_batches = 0
+    for X_batch, y_batch in dataloader:
+        X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+
+        logits = model(X_batch) #this gives a logit for each class cuz we used cross entropy
+        preds = torch.argmax(logits, dim=1) 
+        batch_recall = metric(preds, y_batch) 
+        logger.info(f"Recall for batch {num_batches}: {batch_recall.item()}")
+        num_batches += 1
+
+    #get the aggregated result across all batches
     total_recall = metric.compute()
-    logging.info(f"Recall on all testing data: {total_recall}")
-    #reset it
+    logger.info(f"Recall on all testing data: {total_recall}")
+
     metric.reset()
-    logging.info("final testing finished.")
-                  

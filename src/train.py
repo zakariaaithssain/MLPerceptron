@@ -1,13 +1,8 @@
 import torch
-import logging
 
-from mlp import MultiLayerPerceptron
-from functions import * 
-from config import X_train, X_valid, y_train, y_valid
-
-
-
-
+from src.mlp import MultiLayerPerceptron
+from src.functions import * 
+from src.config import X_train, X_valid, y_train, y_valid
 
 if __name__ == "__main__": 
 
@@ -32,5 +27,5 @@ if __name__ == "__main__":
           exit(1)
     
     except Exception as e: 
-          logging.error(str(e))
-          exit(1)
+        logging.error(str(e))
+        raise
