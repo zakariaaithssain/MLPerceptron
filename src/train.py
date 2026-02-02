@@ -6,6 +6,7 @@ from src.functions import train
 from src.config import X_train, X_valid, y_train, y_valid
 
 if __name__ == "__main__": 
+    logger = logging.getLogger("train")
 
     num_features = X_train.size(dim=1)
     model = MultiLayerPerceptron(input_dim=num_features)
@@ -24,9 +25,9 @@ if __name__ == "__main__":
         train(model, train_dataloader, num_epochs, lr, device, patience, valid_dataloader)
         exit(0)
     except KeyboardInterrupt: 
-          logging.warning("training interrupted manually.")
+          logger.warning("training interrupted manually.")
           exit(1)
     
     except Exception as e: 
-        logging.error(str(e))
+        logger.error(str(e))
         raise

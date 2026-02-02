@@ -1,11 +1,13 @@
-import torch 
-import logging 
+from sklearn.metrics import classification_report
 
 from torch.utils.data import DataLoader
 from torchmetrics.classification import BinaryRecall
 
 from typing import Optional
 from pathlib import Path
+
+import torch 
+import logging 
 
 from src.config import setup_logging
 setup_logging()
@@ -98,7 +100,7 @@ def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:t
 
 #do not track gradient
 @torch.no_grad()
-def validate(model, criterion, valid_dataloader:DataLoader, device:torch.device):
+def validate(model, criterion, valid_dataloader:DataLoader, device:torch.DeviceObjType):
     "to be used for `early stopping` inside `train`"
     model.eval()
     total_loss = 0.0
@@ -120,13 +122,10 @@ def validate(model, criterion, valid_dataloader:DataLoader, device:torch.device)
 
 
 @torch.no_grad()
-def test(model, pt_file:Path, test_data:torch.utils.data.Dataset, device, metric = BinaryRecall()):
+def test(model, test_data:torch.utils.data.Dataset, device:torch.DeviceObjType, metric = BinaryRecall()):
     "testing using the `Binary Recall` metric by default, as we care more about minimizing false negatives (`FN`)"
     model.to(device)
-    checkpoint = torch.load(pt_file, map_location=device)
-    model.load_state_dict(checkpoint["best_model_state"])
     model.eval()
-
     dataloader = torch.utils.data.DataLoader(test_data, batch_size=37, shuffle=True,
                                             pin_memory=True) #in case we have GPU
     
@@ -147,3 +146,25 @@ def test(model, pt_file:Path, test_data:torch.utils.data.Dataset, device, metric
     logger.info(f"Recall on all testing data: {total_recall}")
 
     metric.reset()
+
+
+
+def sklearn_classif_report(model, X_test:torch.Tensor, y_test:torch.Tensor):
+    "build scikit learn classfication report from the testing data."
+
+    with torch.no_grad():
+        logits = model(X_test)
+        preds = torch.argmax(logits, dim=1) 
+
+    #return tensors to cpu and convert them to ndarrays (sklearn doesn't support tensors)
+    y_true = y_test.cpu().numpy()
+    y_pred = preds.cpu().numpy()
+
+    report = classification_report(
+        y_true,
+        y_pred,
+        target_names=["healthy", "sick"]
+    )
+
+    return report
+     
