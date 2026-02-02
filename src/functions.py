@@ -1,10 +1,13 @@
 import torch 
 import logging 
 
+from torch.utils.data import DataLoader
+from torchmetrics.classification import BinaryRecall
+
+from typing import Optional
 
 
-
-def train(model, train_dataloader:torch.utils.data.DataLoader, num_epochs:int, lr:float, device, valid_dataloader:None): 
+def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:torch.device, valid_dataloader:Optional[DataLoader] = None): 
         model.to(device)
         #Adam with L2 regularization, regularization strength 1e-4
         decay, no_decay = [], []
@@ -88,9 +91,8 @@ def train(model, train_dataloader:torch.utils.data.DataLoader, num_epochs:int, l
 
 #do not track gradient
 @torch.no_grad()
-def validate(model, criterion, valid_dataloader, device):
-    "to be used for early stopping inside `train`"
-
+def validate(model, criterion, valid_dataloader:DataLoader, device:torch.device):
+    "to be used for `early stopping` inside `train`"
     model.eval()
     total_loss = 0.0
     num_batches = 0
@@ -111,24 +113,31 @@ def validate(model, criterion, valid_dataloader, device):
 
 
 @torch.no_grad()
-def test(trained_model,test_data:torch.utils.data.Dataset, criterion, device):
-    "testing using the Recall metric, as we care more about avoiding any "
+def test(trained_model,test_data:torch.utils.data.Dataset, device, metric = BinaryRecall()):
+    "testing using the `Binary Recall` metric by default, as we care more about minimizing false negatives (`FN`)"
 
     trained_model.eval()
-    total_loss = 0.0
-    num_batches = 0
+    trained_model.to(device)
+    metric.to(device)
 
+    num_batches = 0
     dataloader = torch.utils.data.DataLoader(test_data, batch_size=37, shuffle=True,
                                             pin_memory=True) #in case we have GPU
+    logging.info("final testing started.")
     for X_batch, y_batch in dataloader:
         X_batch = X_batch.to(device)
         y_batch = y_batch.to(device)
 
         logits = trained_model(X_batch)
-        loss = criterion(logits, y_batch)
-
-        total_loss += loss.item()
+        #the metric class transforms logits to probas automatically. 
+        batch_recall = metric(logits, y_batch)
+        logging.info(f"Recall for batch {num_batches}: {batch_recall}")
         num_batches += 1
-
-    return total_loss / num_batches
+    
+    #metric automatically accumulates metrics over batches
+    total_recall = metric.compute()
+    logging.info(f"Recall on all testing data: {total_recall}")
+    #reset it
+    metric.reset()
+    logging.info("final testing finished.")
                   
