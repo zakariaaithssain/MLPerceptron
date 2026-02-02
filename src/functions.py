@@ -14,7 +14,7 @@ setup_logging()
 
 
 
-def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:torch.device, valid_dataloader:Optional[DataLoader] = None): 
+def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:torch.device, patience: int=20, valid_dataloader:Optional[DataLoader] = None): 
         logger = logging.getLogger("train")
         model.to(device)
         #Adam with L2 regularization, regularization strength 1e-4
@@ -35,7 +35,6 @@ def train(model, train_dataloader:DataLoader, num_epochs:int, lr:float, device:t
 
         criterion = torch.nn.CrossEntropyLoss()
         best_val_loss = float("inf")
-        patience = 20
         patience_counter = 0
 
         logger.info("training started.")

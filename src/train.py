@@ -1,7 +1,8 @@
 import torch
+import logging
 
 from src.mlp import MultiLayerPerceptron
-from src.functions import * 
+from src.functions import train 
 from src.config import X_train, X_valid, y_train, y_valid
 
 if __name__ == "__main__": 
@@ -18,9 +19,9 @@ if __name__ == "__main__":
                                             pin_memory=True) 
     num_epochs = 500
     lr = 1e-3
-
+    patience = 20 
     try:
-        train(model, train_dataloader, num_epochs, lr, device, valid_dataloader)
+        train(model, train_dataloader, num_epochs, lr, device, patience, valid_dataloader)
         exit(0)
     except KeyboardInterrupt: 
           logging.warning("training interrupted manually.")
